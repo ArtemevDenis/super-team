@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4571
+      DATA_DIR: /app/data
+    volumes:
+      # Данные снаружи образа: пересборка не должна стирать базу.
+      - ./data:/app/data
+    # Именно expose, а не ports: наружу приложение смотрит только через Caddy.
+    # Опубликованный порт докер пробил бы в обход ufw, и вход оказался бы
+    # доступен по голому HTTP мимо всей защиты.
+    expose:
+      - '4571'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

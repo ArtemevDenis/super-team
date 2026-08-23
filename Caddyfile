@@ -1,0 +1,6 @@
+# Домен подставляется из переменной APP_DOMAIN в .env рядом с compose.
+# Caddy сам получает сертификат Let's Encrypt и продлевает его.
+{$APP_DOMAIN} {
+	encode gzip
+	reverse_proxy app:4571
+}

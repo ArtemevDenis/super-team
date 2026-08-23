@@ -1,0 +1,90 @@
+@import 'tailwindcss';
+
+/**
+ * Палитра — это шкала важности, а не украшение. Никакого отдельного
+ * акцентного цвета: важность и есть весь продукт, поэтому четыре
+ * функциональных оттенка и всё.
+ *
+ * Приглушены намеренно. Неоновый #ef4444 на каждой второй карточке
+ * превращает панель в панику, а перепуганную панель закрывают не читая —
+ * ровно тот провал, от которого защищает весь движок алертов.
+ */
+@theme {
+  --color-ink: #14161a;
+  --color-surface: #1c1f25;
+  --color-raised: #242830;
+  --color-line: #2e333c;
+  --color-line-soft: #262a32;
+
+  --color-fg: #e8e6e1;
+  --color-fg-dim: #9298a3;
+  --color-fg-faint: #666c78;
+
+  --color-critical: #d9694f;
+  --color-warning: #d69a4a;
+  --color-info: #6f8299;
+  --color-positive: #7fa06a;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Все числа на этом экране — содержание, а не подпись к нему: «просрочен
+     на 20 дней» читается взглядом только при табличных цифрах. */
+  .tnum {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  .eyebrow {
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-fg-faint);
+    font-weight: 600;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-info) 45%, transparent);
+  }
+}
+
+@layer utilities {
+  /* Штриховка для просроченного участка полосы контакта и для скрытых
+     в режиме шара экрана блоков. */
+  .hatched {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      currentColor 0 1px,
+      transparent 1px 5px
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
