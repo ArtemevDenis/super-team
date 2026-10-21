@@ -402,6 +402,32 @@ export const commitments = sqliteTable(
   ],
 );
 
+/**
+ * Личный список дел лида.
+ *
+ * Принадлежит пользователю, а не команде — в отличие от всего остального.
+ * «Забронировать переговорку», «ответить HR» не относятся ни к одной из
+ * команд, и при переключении команды список не должен пропадать.
+ *
+ * Порядок ручной: position задаёт сам лид перетаскиванием, дедлайн только
+ * подсвечивается и порядок не меняет.
+ */
+export const todos = sqliteTable(
+  'todos',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    dueAt: day('due_at'),
+    position: integer('position').notNull().default(0),
+    completedAt: ts('completed_at'),
+    ...timestamps,
+  },
+  (t) => [index('todos_user').on(t.userId, t.position)],
+);
+
 /* ------------------------------------------------------------------ */
 /* Память о человеке                                                   */
 /* ------------------------------------------------------------------ */

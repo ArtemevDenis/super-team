@@ -298,3 +298,23 @@ describe('обход структуры', () => {
     });
   });
 });
+
+describe('личные дела', () => {
+  it('вырезает дела целиком, не трогая обещания', () => {
+    const payload = sanitizeForPresentation({
+      todos: [
+        {
+          id: 1,
+          userId: 1,
+          title: 'поговорить с Петей про оффер',
+          dueAt: null,
+          position: 0,
+          completedAt: null,
+        },
+      ],
+      promises: [{ id: 2, personId: 7, title: 'ревью плана', dueAt: null }],
+    });
+    expect(payload.todos).toEqual([]);
+    expect(payload.promises).toHaveLength(1);
+  });
+});

@@ -471,3 +471,20 @@ export type IssueSummaryType = {
   olderCount: number;
   total: number;
 };
+
+export type TodoType = {
+  id: number;
+  title: string;
+  dueAt: string | null;
+  position: number;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export type MyCommitmentType = {
+  id: number;
+  personId: number;
+  personName: string;
+  title: string;
+  dueAt: string | null;
+};

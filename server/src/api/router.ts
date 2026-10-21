@@ -14,6 +14,7 @@ import {
   setPresentationMode,
 } from './presentation-mode.js';
 import { requireContext } from '../auth/context.js';
+import { ownershipMiddleware, ownsAlertKey } from './ownership.js';
 import * as assess from '../repositories/assessments.js';
 import {
   buildCalendar,
@@ -30,11 +31,13 @@ import { getPersonContext } from '../repositories/person-context.js';
 import * as reference from '../repositories/reference.js';
 import * as settingsRepo from '../repositories/settings.js';
 import * as teamsRepo from '../repositories/teams.js';
+import * as todosRepo from '../repositories/todos.js';
 import {
   archivePersonSchema,
   bulkAssessmentSchema,
   createAttributeSchema,
   createTeamSchema,
+  createTodoSchema,
   createAbsenceSchema,
   createCommitmentSchema,
   createDepartmentSchema,
@@ -52,6 +55,7 @@ import {
   presentationModeSchema,
   removeGradeExpectationSchema,
   reorderAttributesSchema,
+  reorderTodosSchema,
   saveAssessmentSchema,
   saveNoteBlockSchema,
   saveOneOnOneSchema,
@@ -61,6 +65,7 @@ import {
   updateSpecializationSchema,
   updateAttributeSchema,
   updateTeamSchema,
+  updateTodoSchema,
   updateCommitmentSchema,
   updateIssueSchema,
   updateKarmaCategorySchema,
@@ -71,6 +76,7 @@ export const api = Router();
 
 // Ставится первым: всё, что ниже, отдаёт ответы уже через санитайзер.
 api.use(presentationModeMiddleware);
+api.use(ownershipMiddleware);
 
 api.get('/presentation-mode', (_req, res) => {
   res.json({ enabled: isPresentationMode() });
@@ -484,6 +490,41 @@ api.delete('/commitments/:id', (req, res) => {
   res.status(204).end();
 });
 
+api.get('/commitments/mine', (_req, res) => {
+  res.json(meetings.listMyOpenCommitments());
+});
+
+/* -------------------------------- дела -------------------------------- */
+
+api.get('/todos', (_req, res) => {
+  res.json(todosRepo.listTodos());
+});
+
+api.post('/todos', (req, res) => {
+  res.status(201).json(todosRepo.createTodo(parse(createTodoSchema, req.body)));
+});
+
+// Объявлены до /todos/:id, иначе «reorder» и «completed» ушли бы в параметр.
+api.post('/todos/reorder', (req, res) => {
+  todosRepo.reorderTodos(parse(reorderTodosSchema, req.body).ids);
+  res.status(204).end();
+});
+
+api.delete('/todos/completed', (_req, res) => {
+  res.json({ removed: todosRepo.clearCompleted() });
+});
+
+api.patch('/todos/:id', (req, res) => {
+  const updated = todosRepo.updateTodo(numericParam(req, 'id'), parse(updateTodoSchema, req.body));
+  if (!updated) return notFound(res);
+  res.json(updated);
+});
+
+api.delete('/todos/:id', (req, res) => {
+  if (!todosRepo.removeTodo(numericParam(req, 'id'))) return notFound(res);
+  res.status(204).end();
+});
+
 /* -------------------------------- карма ------------------------------- */
 
 /* ------------------------------- косяки ------------------------------- */
@@ -602,7 +643,7 @@ api.delete('/absences/:id', (req, res) => {
 api.get('/settings/alerts', (_req, res) => {
   res.json({
     enabled: settingsRepo.getEnabledAlerts(),
-    mutes: settingsRepo.listAllMutes(),
+    mutes: settingsRepo.listAllMutes().filter((mute) => ownsAlertKey(mute.alertKey)),
   });
 });
 
@@ -614,13 +655,16 @@ api.put('/settings/alerts', (req, res) => {
 
 api.post('/alerts/mute', (req, res) => {
   const input = parse(muteAlertSchema, req.body);
+  if (!ownsAlertKey(input.alertKey)) return notFound(res);
   if (input.until) settingsRepo.muteAlertUntil(input.alertKey, input.until);
   else settingsRepo.muteAlert(input.alertKey, input.days ?? 7);
   res.status(204).end();
 });
 
 api.delete('/alerts/mute/:key', (req, res) => {
-  settingsRepo.unmuteAlert(decodeURIComponent(req.params.key ?? ''));
+  const key = decodeURIComponent(req.params.key ?? '');
+  if (!ownsAlertKey(key)) return notFound(res);
+  settingsRepo.unmuteAlert(key);
   res.status(204).end();
 });
 

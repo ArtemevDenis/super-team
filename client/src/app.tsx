@@ -8,6 +8,7 @@ import { PersonPage } from './pages/person-page';
 import { PrepPage } from './pages/prep-page';
 import { ReassessPage } from './pages/reassess-page';
 import { SettingsPage } from './pages/settings-page';
+import { TodoPage } from './pages/todo-page';
 import { LoginPage } from './pages/login-page';
 import {
   AUTH_LOST_EVENT,
@@ -16,12 +17,14 @@ import {
   usePresentationMode,
   useSetPresentationMode,
 } from './shared/api';
+import { FloatingWidgetButton, FloatingWidgetProvider } from './shared/ui/floating-widget';
 import { TeamSwitcher } from './shared/ui/team-switcher';
 import { formatDay, today } from './shared/dates';
 
 const NAV = [
   { to: '/', label: 'Сегодня', end: true },
   { to: '/people', label: 'Команда', end: false },
+  { to: '/todo', label: 'Дела', end: false },
   { to: '/settings', label: 'Настройки', end: false },
 ];
 
@@ -45,10 +48,15 @@ export function App() {
 
   // Пустой экран вместо «загрузка»: проверка занимает миллисекунды, и
   // мелькающая надпись читается как сбой.
-  if (isLoading) return <div className="min-h-dvh" />;
-  if (!me) return <LoginPage />;
-
-  return <Shell />;
+  // Провайдер виджета стоит над воротами, а не внутри Shell: режим показа
+  // сбрасывает весь кэш, включая сессию, и на миг приложение уходит в
+  // загрузку. Будь виджет внутри Shell, он закрывался бы ровно в тот
+  // момент, когда начинаешь шарить экран.
+  return (
+    <FloatingWidgetProvider signedIn={isLoading || Boolean(me)}>
+      {isLoading ? <div className="min-h-dvh" /> : me ? <Shell /> : <LoginPage />}
+    </FloatingWidgetProvider>
+  );
 }
 
 function Shell() {
@@ -65,6 +73,7 @@ function Shell() {
           <Route path="/person/:id/prep" element={<PrepPage />} />
           <Route path="/person/:id/one-on-one" element={<OneOnOnePage />} />
           <Route path="/person/:id/reassess" element={<ReassessPage />} />
+          <Route path="/todo" element={<TodoPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
             path="*"
@@ -113,6 +122,7 @@ function Header() {
           ))}
         </nav>
         <PresentationToggle />
+        <FloatingWidgetButton />
         {/* Дату на телефоне не показываем: она и так в строке состояния. */}
         <span className="tnum hidden text-[12px] text-fg-faint sm:inline">
           {formatDay(today())}

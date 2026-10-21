@@ -9,6 +9,7 @@ import {
   people,
 } from '../db/schema.js';
 import { addDays, nowTs, today, type DayType } from '../domain/dates.js';
+import { currentTeamId, teamPersonIds } from './teams.js';
 
 export type OneOnOneType = typeof oneOnOnes.$inferSelect;
 export type CommitmentType = typeof commitments.$inferSelect;
@@ -61,13 +62,36 @@ export function getNextPlanned(personId: number): OneOnOneType | null {
 export function listOpenCommitments(personId?: number): CommitmentType[] {
   const condition = personId
     ? and(eq(commitments.status, 'open'), eq(commitments.personId, personId))
-    : eq(commitments.status, 'open');
+    : and(eq(commitments.status, 'open'), inArray(commitments.personId, teamPersonIds()));
 
   return db
     .select()
     .from(commitments)
     .where(condition)
     .orderBy(commitments.dueAt)
+    .all();
+}
+
+/** Открытые обещания лида по активной команде — для виджета, с именем человека. */
+export function listMyOpenCommitments() {
+  return db
+    .select({
+      id: commitments.id,
+      personId: commitments.personId,
+      personName: people.fullName,
+      title: commitments.title,
+      dueAt: commitments.dueAt,
+    })
+    .from(commitments)
+    .innerJoin(people, eq(commitments.personId, people.id))
+    .where(
+      and(
+        eq(people.teamId, currentTeamId()),
+        eq(commitments.direction, 'i_owe'),
+        eq(commitments.status, 'open'),
+      ),
+    )
+    .orderBy(commitments.dueAt, commitments.id)
     .all();
 }
 
@@ -94,7 +118,7 @@ export function listKarma(personId?: number): KarmaEntryType[] {
   const query = db.select().from(karmaEntries);
   const rows = personId
     ? query.where(eq(karmaEntries.personId, personId)).all()
-    : query.all();
+    : query.where(inArray(karmaEntries.personId, teamPersonIds())).all();
   return rows.sort((a, b) => (a.happenedAt < b.happenedAt ? 1 : -1));
 }
 
@@ -179,7 +203,7 @@ export function saveOneOnOne(input: SaveOneOnOneInputType): OneOnOneType {
       ? tx
           .update(oneOnOnes)
           .set(meetingValues)
-          .where(eq(oneOnOnes.id, input.oneOnOneId))
+          .where(and(eq(oneOnOnes.id, input.oneOnOneId), eq(oneOnOnes.personId, input.personId)))
           .returning()
           .get()
       : tx.insert(oneOnOnes).values(meetingValues).returning().get();
@@ -195,6 +219,12 @@ export function saveOneOnOne(input: SaveOneOnOneInputType): OneOnOneType {
         .run();
     }
 
+    if (!meeting) {
+      throw Object.assign(new Error('Встреча не найдена'), { status: 404 });
+    }
+
+    // Обещания отмечаются только этого человека: id приходят из формы, и
+    // без условия на personId чужое закрывалось бы подменой одного числа.
     for (const update of input.commitmentUpdates ?? []) {
       tx.update(commitments)
         .set({
@@ -203,7 +233,7 @@ export function saveOneOnOne(input: SaveOneOnOneInputType): OneOnOneType {
           snoozedUntil: update.snoozedUntil ?? null,
           updatedAt: nowTs(),
         })
-        .where(eq(commitments.id, update.id))
+        .where(and(eq(commitments.id, update.id), eq(commitments.personId, input.personId)))
         .run();
     }
 

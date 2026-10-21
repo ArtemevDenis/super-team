@@ -53,6 +53,11 @@ export function currentTeamId(): number {
   return requireContext().teamId;
 }
 
+/** Подзапрос «люди текущей команды» — для таблиц, у которых своей команды нет. */
+export function teamPersonIds() {
+  return db.select({ id: people.id }).from(people).where(eq(people.teamId, currentTeamId()));
+}
+
 /**
  * Активная команда пользователя на момент входа в запрос.
  *

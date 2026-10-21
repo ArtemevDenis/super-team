@@ -22,6 +22,8 @@ import type {
   TeamType,
   TeamKarmaType,
   IssueSummaryType,
+  MyCommitmentType,
+  TodoType,
 } from './types';
 
 /**
@@ -636,6 +638,105 @@ export function useCreateCommitment() {
       dueAt?: string | null;
     }) => post('/commitments', body),
     onSuccess: invalidate,
+  });
+}
+
+export function useMyCommitments() {
+  return useQuery({
+    queryKey: ['commitments', 'mine'],
+    queryFn: () => request<MyCommitmentType[]>('/commitments/mine'),
+  });
+}
+
+/* --------------------------------- дела -------------------------------- */
+
+const TODOS_KEY = ['todos'];
+
+export function useTodos() {
+  return useQuery({
+    queryKey: TODOS_KEY,
+    queryFn: () => request<TodoType[]>('/todos'),
+  });
+}
+
+export function useCreateTodo() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { title: string; dueAt?: string | null }) =>
+      post<TodoType>('/todos', body),
+    onSettled: () => client.invalidateQueries({ queryKey: TODOS_KEY }),
+  });
+}
+
+/**
+ * Галочка и перетаскивание применяются к кэшу сразу, до ответа сервера.
+ * Строка, которая после броска на долю секунды прыгает обратно на старое
+ * место, читается как «не получилось», и её тащат второй раз.
+ */
+export function useUpdateTodo() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: number;
+      title?: string;
+      dueAt?: string | null;
+      done?: boolean;
+    }) => patch<TodoType>(`/todos/${id}`, body),
+    onMutate: ({ id, done, ...fields }) => {
+      client.setQueryData<TodoType[]>(TODOS_KEY, (list) =>
+        list?.map((todo) =>
+          todo.id !== id
+            ? todo
+            : {
+                ...todo,
+                ...fields,
+                ...(done === undefined
+                  ? {}
+                  : { completedAt: done ? new Date().toISOString() : null }),
+              },
+        ),
+      );
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: TODOS_KEY }),
+  });
+}
+
+export function useReorderTodos() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: number[]) => post('/todos/reorder', { ids }),
+    onMutate: (ids) => {
+      client.setQueryData<TodoType[]>(TODOS_KEY, (list) => {
+        if (!list) return list;
+        const rank = new Map(ids.map((id, index) => [id, index]));
+        return [...list]
+          .map((todo) => ({ ...todo, position: rank.get(todo.id) ?? todo.position }))
+          .sort((a, b) => a.position - b.position);
+      });
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: TODOS_KEY }),
+  });
+}
+
+export function useDeleteTodo() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => del(`/todos/${id}`),
+    onMutate: (id) => {
+      client.setQueryData<TodoType[]>(TODOS_KEY, (list) => list?.filter((t) => t.id !== id));
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: TODOS_KEY }),
+  });
+}
+
+export function useClearCompletedTodos() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => del('/todos/completed'),
+    onSettled: () => client.invalidateQueries({ queryKey: TODOS_KEY }),
   });
 }
 

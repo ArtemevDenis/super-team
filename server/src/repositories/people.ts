@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 
 import { db } from '../db/index.js';
 import {
@@ -11,7 +11,7 @@ import {
 } from '../db/schema.js';
 
 import { nowTs, today, type DayType } from '../domain/dates.js';
-import { currentTeamId } from './teams.js';
+import { currentTeamId, teamPersonIds } from './teams.js';
 
 export type PersonType = typeof people.$inferSelect;
 export type PersonEventType = typeof personEvents.$inferSelect;
@@ -262,7 +262,7 @@ export function listAbsences(personId?: number): AbsenceType[] {
   const query = db.select().from(absences);
   const rows = personId
     ? query.where(eq(absences.personId, personId)).all()
-    : query.all();
+    : query.where(inArray(absences.personId, teamPersonIds())).all();
   return rows.sort((a, b) => (a.fromDay < b.fromDay ? 1 : -1));
 }
 

@@ -299,3 +299,18 @@ export const updateIssueSchema = z.object({
   // nullable намеренно: отметку о разговоре нужно уметь снять.
   discussedAt: z.string().nullable().optional(),
 });
+
+export const createTodoSchema = z.object({
+  title: z.string().trim().min(1).max(500),
+  dueAt: daySchema.nullable().optional(),
+});
+
+export const updateTodoSchema = z.object({
+  title: z.string().trim().min(1).max(500).optional(),
+  dueAt: daySchema.nullable().optional(),
+  done: z.boolean().optional(),
+});
+
+export const reorderTodosSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
+});

@@ -65,6 +65,9 @@ const looksLikeCheckin = (node: UnknownRecordType) =>
 const looksLikeAgendaItem = (node: UnknownRecordType) =>
   has(node, 'text') && has(node, 'isSensitive');
 
+const looksLikeTodo = (node: UnknownRecordType) =>
+  has(node, 'userId') && has(node, 'position') && has(node, 'completedAt');
+
 /** Целиком убрать из выдачи. */
 function shouldDrop(node: UnknownRecordType): boolean {
   if (looksLikeNoteBlock(node)) {
@@ -87,6 +90,11 @@ function shouldDrop(node: UnknownRecordType): boolean {
   if (looksLikeCheckin(node)) return true;
 
   if (looksLikeAgendaItem(node)) return node.isSensitive === true;
+
+  // Личные дела лида уходят целиком: виджет висит поверх всех окон и
+  // попадает в любой показ экрана, а «поговорить с Петей про оффер» —
+  // ровно то, что нельзя увидеть комнате.
+  if (looksLikeTodo(node)) return true;
 
   // Средние по климату — тот же приватный настрой, только в агрегате.
   // Оставить их, вырезав сами замеры, значит спрятать частное и показать

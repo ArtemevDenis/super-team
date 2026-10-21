@@ -223,7 +223,7 @@ export function reorderAttributes(ids: readonly number[]): void {
     ids.forEach((id, index) => {
       tx.update(attributes)
         .set({ sortOrder: index, updatedAt: nowTs() })
-        .where(eq(attributes.id, id))
+        .where(and(eq(attributes.id, id), eq(attributes.teamId, currentTeamId())))
         .run();
     });
   });
@@ -385,7 +385,7 @@ export function buildPersonCard(personId: number): PersonCardType | null {
       : db
           .select()
           .from(grades)
-          .where(sql`${grades.level} > ${person.gradeLevel}`)
+          .where(and(eq(grades.teamId, currentTeamId()), sql`${grades.level} > ${person.gradeLevel}`))
           .orderBy(asc(grades.level))
           .get();
 
@@ -510,7 +510,17 @@ export function deleteAssessment(id: number): void {
 }
 
 export function listGradeExpectations() {
-  return db.select().from(gradeExpectations).all();
+  return db
+    .select({
+      id: gradeExpectations.id,
+      gradeId: gradeExpectations.gradeId,
+      attributeId: gradeExpectations.attributeId,
+      expectedValue: gradeExpectations.expectedValue,
+    })
+    .from(gradeExpectations)
+    .innerJoin(grades, eq(gradeExpectations.gradeId, grades.id))
+    .where(eq(grades.teamId, currentTeamId()))
+    .all();
 }
 
 export function setGradeExpectation(

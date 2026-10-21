@@ -1,9 +1,9 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '../db/index.js';
 import { DEFAULT_KARMA_CATEGORIES, karmaCategories, karmaEntries } from '../db/schema.js';
 import { nowTs } from '../domain/dates.js';
-import { currentTeamId } from './teams.js';
+import { currentTeamId, teamPersonIds } from './teams.js';
 
 export type KarmaCategoryRowType = typeof karmaCategories.$inferSelect;
 
@@ -84,7 +84,15 @@ export function updateKarmaCategory(
     if (input.name && input.name !== before.name) {
       tx.update(karmaEntries)
         .set({ category: input.name, updatedAt: nowTs() })
-        .where(eq(karmaEntries.category, before.name))
+        // Только записи своей команды: категории с тем же именем есть у
+        // каждой команды, и без этого условия переименование переписывало
+        // историю всех команд всех пользователей.
+        .where(
+          and(
+            eq(karmaEntries.category, before.name),
+            inArray(karmaEntries.personId, teamPersonIds()),
+          ),
+        )
         .run();
     }
 
