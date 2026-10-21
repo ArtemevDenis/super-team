@@ -1,0 +1,10 @@
+node_modules/
+dist/
+
+# База с оценками и заметками о живых людях — никогда не в репозиторий
+data/
+!data/.gitkeep
+
+.DS_Store
+*.log
+.env
